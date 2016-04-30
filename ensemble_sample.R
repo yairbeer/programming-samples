@@ -1,3 +1,4 @@
+# Predicting wether the article is popular or not by analyzing its headline, snippet and abstract
 # KAGGLE COMPETITION
 
 # We are adding in the argument stringsAsFactors=FALSE, since we have some text fields
