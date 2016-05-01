@@ -11,6 +11,36 @@ Each AP have 7.5 degrees normal error in measurement. The script gives the avera
 the standard-deviation(X, Y)
 """
 
+"""
+Constants
+"""
+# Placing and directing APs, direction is the AP main direction. phi = 0 -> y+, phi = 90 -> x+. like a compass
+# [0: x, 1: y, 2: direction]
+aps_raw = np.array([[-1, -1, 45.0],
+                   [-1, 101, 135.0],
+                   [101, 101, 225.0],
+                   [101, -1, 315.0]])
+
+# Grid dimesions in meters, resolution of 1 meter [[x_min, x_max], [y_min, y_max]]
+boundaries = [[0, 100], [0, 100]]
+
+# Creating calculating grid mesh
+x = y = np.arange(0, 100 + 1)
+X, Y = np.meshgrid(x, y)
+
+# Recieved DOA noise
+noise = 7.5
+
+# Grid's resolution
+res = 5
+
+# Monte Carlo repetitions
+n_rep = 5
+
+"""
+Classes and functions
+"""
+
 
 class AccessPoint(object):
     """
@@ -180,20 +210,6 @@ def mat_fun_calc(fun, matrix_list):
 """
 Program starts here
 """
-# Placing and directing APs, direction is the AP main direction. phi = 0 -> y+, phi = 90 -> x+. like a compass
-# [0: x, 1: y, 2: direction]
-aps_raw = np.array([[-1, -1, 45.0],
-                   [-1, 101, 135.0],
-                   [101, 101, 225.0],
-                   [101, -1, 315.0]])
-
-# Grid dimesions in meters, resolution of 1 meter [[x_min, x_max], [y_min, y_max]]
-boundaries = [[0, 100], [0, 100]]
-
-# Creating calculating grid
-x = y = np.arange(0, 100 + 1)
-X, Y = np.meshgrid(x, y)
-
 # init APs
 print('Initalizing APs')
 ap_arr = []
@@ -203,7 +219,6 @@ ap_arr = np.array(ap_arr)
 
 # init DOA
 print('Initalizing true DOAs')
-noise = 7.5
 doa_arr = []
 for i in range(len(ap_arr)):
     doa_arr.append(SimulatedDoa(ap_arr[i], X, Y))
@@ -212,12 +227,11 @@ doa_arr = np.array(doa_arr)
 
 # init grid
 print('Initalizing coarse grid calculation')
-grid = Grid(0, 100, 20)
+grid = Grid(np.min(boundaries), np.max(boundaries), res)
 for i in range(len(ap_arr)):
     doa_arr[i].add_grid(grid)
 
 # monte-carlo
-n_rep = 2
 x_est_err_list = y_est_err_list = []
 print('Starting Monte-Carlo simulation with %d repetitions' % n_rep)
 for repetition in range(n_rep):
@@ -243,7 +257,7 @@ sd_tot = np.sqrt(sd_x ** 2 + sd_y ** 2)
 
 print('The mean SD is: %f' % np.mean(sd_tot))
 
-sd_tot = ndimage.filters.uniform_filter(sd_tot, size=5)
+# sd_tot = ndimage.filters.uniform_filter(sd_tot, size=5)
 
 # plot SD(x, y) plot
 origin = 'lower'
