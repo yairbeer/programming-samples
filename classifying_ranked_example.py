@@ -3,12 +3,21 @@ import pandas as pd
 import numpy as np
 import glob
 from sklearn.linear_model import LinearRegression
-from sklearn.svm import SVR
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.cross_validation import StratifiedKFold
 import scipy.optimize as optimize
 
 __author__ = 'YBeer'
+
+"""
+This script was used in the "Prudential Life Insurance Assessment" competition on the 11/2015 on kaggle.com
+The purpose of the competition was to assess the health status of patients according to the a dataset. The
+health status was a dependant ordinal parameter between 1 to 8. This script used to predict from linear regression,
+random forest, xgboost and SVR meta-estimators.
+"""
+
+"""
+Used functions from kaggle
+"""
 
 
 def confusion_matrix(rater_a, rater_b, min_rating=None, max_rating=None):
@@ -82,19 +91,29 @@ def quadratic_weighted_kappa(rater_a, rater_b, min_rating=None, max_rating=None)
 
     for i in range(num_ratings):
         for j in range(num_ratings):
-            expected_count = (hist_rater_a[i] * hist_rater_b[j]
-                              / num_scored_items)
+            expected_count = (hist_rater_a[i] * hist_rater_b[j] / num_scored_items)
             d = pow(i - j, 2.0) / pow(num_ratings - 1, 2.0)
             numerator += d * conf_mat[i][j] / num_scored_items
             denominator += d * expected_count / num_scored_items
 
     return 1.0 - numerator / denominator
 
+"""
+My own functions
+"""
+
 
 def ranking(predictions, split_index):
+    """
+    Ranking predictions according to an array with n-1 splits
+    :param predictions: 1D array of predictions
+    :param split_index: 1D array of splitter values, for example: np.array([1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5])
+    :return: Ranked classified results
+    """
     # print predictions
     ranked_predictions = np.ones(predictions.shape)
 
+    # For each rank get predictions (for efficiency)
     for i in range(1, len(split_index)):
         cond = (split_index[i-1] <= predictions) * 1 * (predictions < split_index[i])
         ranked_predictions[cond.astype('bool')] = i+1
@@ -105,41 +124,13 @@ def ranking(predictions, split_index):
     return ranked_predictions
 
 
-train_result = pd.DataFrame.from_csv("train_result.csv")
-# print train_result['Response'].value_counts()
-
-col = list(train_result.columns.values)
-result_ind = list(train_result[col[0]].value_counts().index)
-train_result = np.array(train_result).ravel()
-
-# combining meta_estimators
-train = glob.glob('meta_train*')
-train = sorted(train)
-print(train)
-for i in range(len(train)):
-    train[i] = pd.DataFrame.from_csv(train[i])
-train = pd.concat(train, axis=1)
-train = np.array(train)
-
-test = glob.glob('meta_test*')
-test = sorted(test)
-print(test)
-for i in range(len(test)):
-    test[i] = pd.DataFrame.from_csv(test[i])
-test = pd.concat(test, axis=1)
-test = np.array(test)
-
-# print train_result.shape[1], ' categorial'
-print(train.shape[1], ' columns')
-
-# 4th
-# splitter = [2.46039684, 3.48430979, 4.30777339, 4.99072484, 5.59295844, 6.17412558, 6.79373477]
-# nelder mead opt
-splitter = np.array([2.46039684, 3.48430979, 4.30777339, 4.99072484, 5.59295844, 6.17412558, 6.79373477])
-riskless_splitter = np.array([1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5])
-
-
 def opt_cut_global(predictions, results):
+    """
+    Find a coarse optimal splitter by quadratic fitting the values of the trivial splitter
+    :param predictions: An array of predicitions
+    :param results: An array of the same shape of results in order to find best fit
+    :return: Coarse optimal splitter
+    """
     print('start quadratic splitter optimization')
     x0_range = np.arange(0, 5.25, 0.25)
     x1_range = np.arange(0, 1.5, 0.15)
@@ -167,20 +158,60 @@ def opt_cut_global(predictions, results):
 
 
 def opt_cut_local(x, *args):
+    """
+    Calculate score for splitter (used for local nelder-mead optimization around global splitter starting point).
+    :param x: predictions' splitter
+    :param args: predictions, results
+    :return: - quadratic_weighted_kappa (in order to minimize score)
+    """
     predictions, results = args
     case = np.array(ranking(predictions, x)).astype('int')
     score = -1 * quadratic_weighted_kappa(results, case, 1, 8)
     # print score
     return score
 
+"""
+Start of program
+"""
+# Read training results
+train_result = pd.DataFrame.from_csv("train_result.csv")
+
+# Visualize the distribution of results
+print(train_result['Response'].value_counts())
+
+col = list(train_result.columns.values)
+result_ind = list(train_result[col[0]].value_counts().index)
+train_result = np.array(train_result).ravel()
+
+# read meta_estimators
+train = glob.glob('meta_train*')
+train = sorted(train)
+print(train)
+for i in range(len(train)):
+    train[i] = pd.DataFrame.from_csv(train[i])
+train = pd.concat(train, axis=1)
+train = np.array(train)
+
+test = glob.glob('meta_test*')
+test = sorted(test)
+print(test)
+for i in range(len(test)):
+    test[i] = pd.DataFrame.from_csv(test[i])
+test = pd.concat(test, axis=1)
+test = np.array(test)
+
+# print train_result.shape[1], ' categorial'
+print(train.shape[1], ' columns')
+
+# initialize the trivial splitter to cut between classes
+riskless_splitter = np.array([1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5])
+
 best_risk = 0
 best_score = 0
 best_splitter = 0
-risk = 0.95
 
 regressor = LinearRegression(fit_intercept=True)
-# regressor = RandomForestRegressor(n_estimators=400, max_depth=7)
-# regressor = SVR(verbose=True)
+
 param_grid = [
               {'risk': [1]}
              ]
@@ -254,11 +285,3 @@ submission_file['Response'] = classed_results
 print(submission_file['Response'].value_counts())
 
 submission_file.to_csv("ensemble_LR_noclass_v3.csv")
-
-# added best splitter, CV = 8, parsing V3
-# Linear Regression: 0.669959058956, LB: 0.66615
-# RFR: 0.669285980007, LB: 0.66600
-
-# No NN
-# Linear Regression: , LB:
-# RFR: , LB:
