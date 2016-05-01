@@ -35,7 +35,7 @@ noise = 7.5
 res = 5
 
 # Monte Carlo repetitions
-n_rep = 5
+n_rep = 20
 
 """
 Classes and functions
@@ -244,7 +244,7 @@ for repetition in range(n_rep):
     # grid search
     x_est, y_est = prob_density_grid_max(doa_arr, noise)
     # fine search
-    x_est, y_est = prob_density_calc_neldermead(doa_arr, noise, x_est, y_est)
+    # x_est, y_est = prob_density_calc_neldermead(doa_arr, noise, x_est, y_est)
 
     x_est_err_list.append(x_est - X)
     y_est_err_list.append(y_est - Y)
@@ -257,11 +257,12 @@ sd_tot = np.sqrt(sd_x ** 2 + sd_y ** 2)
 
 print('The mean SD is: %f' % np.mean(sd_tot))
 
-# sd_tot = ndimage.filters.uniform_filter(sd_tot, size=5)
+sd_tot = ndimage.filters.uniform_filter(sd_tot, size=3)
 
 # plot SD(x, y) plot
+# plt.hist(sd_tot.flatten())
+# plt.show()
 origin = 'lower'
-V = range(16)
-plt.contourf(X, Y, sd_tot, V, cmap=plt.cm.hot, origin=origin)
+plt.contourf(X, Y, sd_tot, origin=origin, cmap=plt.cm.hot)
 plt.colorbar(orientation='vertical', shrink=0.8)
 plt.show()
