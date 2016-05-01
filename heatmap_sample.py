@@ -86,17 +86,25 @@ class SimulatedDoa(object):
 def global_angle_calc(deltax, deltay):
     # Global angle calculation
     # The angles are like a compass, y+ = 0, x+ = 90, clockwise
+    # fixing divide by zero
+    dy_0 = (deltay == 0) * 1
+    y_div_0 = (deltax > 0) * 90 + (deltax < 0) * 270
+    dx_0 = (deltax == 0) * 1
+    x_div_0 = (deltay > 0) * 0 + (deltay < 0) * 180
+
+    # calculate angles where dy is non zero
+    if deltay.shape:
+        if np.any(deltay == 0):
+            deltay[deltay == 0] = 1
+    else:
+        if not deltay:
+            deltay = 1
     g_angle = np.arctan(deltax / deltay) * 180 / np.pi
     # fix for negative dy
     g_angle += (deltay < 0) * 180
     # fix for negative dx positive dy
     g_angle += ((deltay > 0) * (deltax < 0)) * 360
 
-    # fixing divide by zero
-    dy_0 = (deltay == 0) * 1
-    y_div_0 = (deltax > 0) * 90 + (deltax < 0) * 270
-    dx_0 = (deltax == 0) * 1
-    x_div_0 = (deltay > 0) * 0 + (deltay < 0) * 180
     g_angle = g_angle * (1 - dy_0) + y_div_0 * dy_0 + x_div_0 * dx_0
     return g_angle
 
@@ -169,7 +177,9 @@ def mat_fun_calc(fun, matrix_list):
             answer[i_in, j_in] = fun(cur_pos_est)
     return answer
 
-
+"""
+Program starts here
+"""
 # Placing and directing APs, direction is the AP main direction. phi = 0 -> y+, phi = 90 -> x+. like a compass
 # [0: x, 1: y, 2: direction]
 aps_raw = np.array([[-1, -1, 45.0],
