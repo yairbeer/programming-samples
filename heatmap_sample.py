@@ -35,7 +35,7 @@ noise = 7.5
 res = 5
 
 # Monte Carlo repetitions
-n_rep = 20
+n_rep = 2
 
 """
 Classes and functions
@@ -248,6 +248,8 @@ for repetition in range(n_rep):
 
     x_est_err_list.append(x_est - X)
     y_est_err_list.append(y_est - Y)
+    print(x_est_err_list[-1][-10:, :10])
+    print(y_est_err_list[-1][-10:, :10])
 
 # calculate functions
 print('Finding standard deviation')
