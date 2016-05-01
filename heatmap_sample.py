@@ -14,28 +14,31 @@ the standard-deviation(X, Y)
 """
 Constants
 """
+# Print human readable numpy arrays
+np.set_printoptions(precision=2, suppress=True)
+
 # Placing and directing APs, direction is the AP main direction. phi = 0 -> y+, phi = 90 -> x+. like a compass
 # [0: x, 1: y, 2: direction]
 aps_raw = np.array([[-1, -1, 45.0],
-                   [-1, 101, 135.0],
-                   [101, 101, 225.0],
-                   [101, -1, 315.0]])
+                   [-1, 11, 135.0],
+                   [11, 11, 225.0],
+                   [11, -1, 315.0]])
 
 # Grid dimesions in meters, resolution of 1 meter [[x_min, x_max], [y_min, y_max]]
-boundaries = [[0, 100], [0, 100]]
+boundaries = [[0, 10], [0, 10]]
 
 # Creating calculating grid mesh
-x = y = np.arange(0, 100 + 1)
+x = y = np.arange(0, 10 + 1)
 X, Y = np.meshgrid(x, y)
 
 # Recieved DOA noise
-noise = 7.5
+noise = 0.01
 
 # Grid's resolution
-res = 5
+res = 1
 
 # Monte Carlo repetitions
-n_rep = 2
+n_rep = 1
 
 """
 Classes and functions
@@ -135,7 +138,7 @@ def global_angle_calc(deltax, deltay):
     # fix for negative dx positive dy
     g_angle += ((deltay > 0) * (deltax < 0)) * 360
 
-    g_angle = g_angle * (1 - dy_0) + y_div_0 * dy_0 + x_div_0 * dx_0
+    g_angle = g_angle * (1 - dy_0) * (1 - dx_0) + y_div_0 * dy_0 + x_div_0 * dx_0
     return g_angle
 
 
@@ -222,7 +225,6 @@ print('Initalizing true DOAs')
 doa_arr = []
 for i in range(len(ap_arr)):
     doa_arr.append(SimulatedDoa(ap_arr[i], X, Y))
-    doa_arr[-1].add_noise(noise)
 doa_arr = np.array(doa_arr)
 
 # init grid
@@ -244,12 +246,10 @@ for repetition in range(n_rep):
     # grid search
     x_est, y_est = prob_density_grid_max(doa_arr, noise)
     # fine search
-    # x_est, y_est = prob_density_calc_neldermead(doa_arr, noise, x_est, y_est)
+    x_est, y_est = prob_density_calc_neldermead(doa_arr, noise, x_est, y_est)
 
     x_est_err_list.append(x_est - X)
     y_est_err_list.append(y_est - Y)
-    print(x_est_err_list[-1][-10:, :10])
-    print(y_est_err_list[-1][-10:, :10])
 
 # calculate functions
 print('Finding standard deviation')
@@ -259,7 +259,7 @@ sd_tot = np.sqrt(sd_x ** 2 + sd_y ** 2)
 
 print('The mean SD is: %f' % np.mean(sd_tot))
 
-sd_tot = ndimage.filters.uniform_filter(sd_tot, size=3)
+# sd_tot = ndimage.filters.uniform_filter(sd_tot, size=3)
 
 # plot SD(x, y) plot
 # plt.hist(sd_tot.flatten())
