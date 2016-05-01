@@ -213,35 +213,36 @@ best_splitter = 0
 regressor = LinearRegression(fit_intercept=True)
 
 param_grid = [
-              {'risk': [1]}
+              {'risk': [0.9]}
              ]
 
-print('start CV')
+print('start parametric optimization')
 for params in ParameterGrid(param_grid):
     print(params)
 
     # CV
+    print('starting stratified CV')
     cv_n = 8
     kf = StratifiedKFold(train_result, n_folds=cv_n, shuffle=True)
     it_splitter = []
     metric = []
+    # Creating array of train predictions for testing without overfitting
     train_test_predictions = np.ones((train.shape[0],))
     for train_index, test_index in kf:
         X_train, X_test = train[train_index, :], train[test_index, :]
         y_train, y_test = train_result[train_index].ravel(), train_result[test_index].ravel()
-        # train machine learning
 
+        # train machine learning
         regressor.fit(X_train, y_train)
 
         # predict
         predicted_results = regressor.predict(X_test)
         train_test_predictions[test_index] = predicted_results
         splitter = opt_cut_global(predicted_results, y_test)
-        # train machine learning
         res = optimize.minimize(opt_cut_local, splitter, args=(predicted_results, y_test), method='Nelder-Mead',
                                 # options={'disp': True}
                                 )
-        # print res.x
+        # Using a splitter that is a linear combination of trivial splitter and optimal splitter to avoid overfitting
         cur_splitter = list(params['risk'] * res.x + (1 - params['risk']) * riskless_splitter)
         it_splitter.append(cur_splitter)
         # print cur_splitter
@@ -249,7 +250,9 @@ for params in ParameterGrid(param_grid):
         # predict
         print(quadratic_weighted_kappa(y_test, classified_predicted_results, 1, 8))
         metric.append(quadratic_weighted_kappa(y_test, classified_predicted_results, 1, 8))
+
     print('The quadratic weighted kappa is: ', np.mean(metric))
+    # Updating if the current parameter is the best one
     if np.mean(metric) > best_score:
         print('new best risk')
         best_score = np.mean(metric)
@@ -257,26 +260,27 @@ for params in ParameterGrid(param_grid):
         it_splitter = np.array(it_splitter)
         best_splitter = np.average(it_splitter, axis=0)
 
+# Writing trainset predictions for debuging purposes or another layer of meta solvers
 pd.DataFrame(train_test_predictions).to_csv('ensemble_train_predictions_LR_noclass_v3.csv')
+
+# Calculating coarse optimal splitter
 print('Calculating final splitter')
 splitter = opt_cut_global(train_test_predictions, train_result)
-# train machine learning
+# Calculating local optimal splitter from coarse calculation
 res = optimize.minimize(opt_cut_local, splitter, args=(train_test_predictions, train_result), method='Nelder-Mead',
                         # options={'disp': True}
                         )
 classified_predicted_results = np.array(ranking(train_test_predictions, res.x)).astype('int')
 print(quadratic_weighted_kappa(train_result, classified_predicted_results, 1, 8))
-splitter = list(params['risk'] * res.x + (1 - params['risk']) * riskless_splitter)
 
+# Fit regressor
 regressor.fit(train, train_result)
-# print 'The regression coefs are:'
-# print regressor.coef_, regressor.intercept_
-# predict
+# Predict
 predicted_results = regressor.predict(test)
 
-
+# Using a splitter that is a linear combination of trivial splitter and optimal splitter to avoid overfitting
 final_splitter = list(res.x * best_risk + riskless_splitter * (1 - best_risk))
-print(final_splitter)
+
 print('writing to file')
 classed_results = np.array(ranking(predicted_results, final_splitter)).astype('int')
 submission_file = pd.DataFrame.from_csv("sample_submission.csv")
