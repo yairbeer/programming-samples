@@ -10,7 +10,7 @@ health status was a dependant ordinal variable between 1 to 8.
 This script is a second tier solver and it consists of several steps:
 
 1. Read predictions linear regression, random forest, xgboost and SVR train and test meta-estimators.
-2. Cross validate: linear regression of the train meta-predictions and then to cut into ordinal classes optimally
+2. Stratified K-Fold cross validation: linear regression of the train meta-predictions and then to cut into ordinal classes optimally
 3. linear regression of the train meta-predictions predicting the test meta-predictions and then to cut into ordinal classes optimally.
 
 ### heatmap_sample.py
