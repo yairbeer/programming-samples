@@ -41,7 +41,15 @@ This script consists of several steps:
 7. Write results to submission file
 
 ### model_over_time.R
+This script is for simulation of errors in positioning estimation over time while the mobile station is
+moving using weighted mean of crossings of couples of access points.
+The script gives the plots of x\(t\), y\(t\) and the 2D track, raw estimation and filtered over time estimation.
 
+Technologies:
+
+* ggplot2
+* time filter
+* R functions
 
 ### modeling_sample.R
 This script is consisted from several homework answers from week 4 of HarvardX - PH525.3x Advances Statistics for the Life Sciences on edx.org.
