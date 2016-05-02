@@ -130,7 +130,7 @@ breaks=seq(0,4000*round(max(locations)/4000),4000)
 tmp=cut(locations,breaks)
 counts=as.numeric(table(tmp))
 binLocation=(breaks[-1]+breaks[-length(breaks)])/2
-plot(binLocation,counts,type="l",xlab=)
+plot(binLocation,counts,type="l",xlab="Location")
 
 which.max(counts)
 binLocation[24]

@@ -18,6 +18,14 @@ This script is for Monte-Carlo simulations of errors in positioning estimations 
 Where each AP have normal distributed error in measurement.
 The script gives the average standard deviation and a heatmap of the standard-deviation as a function of \(X, Y\).
 
+Technologies:
+
+* classes
+* numpy
+* global and local(scipy.optimize) optimization
+* Monte-Carlo Simulation
+* Matplotlib
+
 ## R programming scripts
 ### NLP_ensemble_sample.R
 This script was used in MITx's 15.071x - The Analytics Edge Spring 2015 competition.
@@ -34,3 +42,9 @@ This script consists of several steps:
 
 ### modeling_sample.R
 This script is consisted from several homework answers from week 4 of HarvardX - PH525.3x Advances Statistics for the Life Sciences on edx.org.
+
+Technologies:
+
+* Binomial Probability distribution
+* Normal and Poisson approximation for Binomial distribution
+* Maximum Likelihood Estimate
