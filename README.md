@@ -6,8 +6,8 @@ are written by me unless explictly written overwise.
 ### classifying_ranked_sample.py
 This script was used in the "Prudential Life Insurance Assessment" competition on the 11/2015 on kaggle.com
 The purpose of the competition was to assess the health status of patients according to the a dataset. The
-health status was a dependant ordinal parameter between 1 to 8.
-This script was a second tier solver and it was consisted of several steps:
+health status was a dependant ordinal variable between 1 to 8.
+This script is a second tier solver and it consists of several steps:
 1. Read predictions linear regression, random forest, xgboost and SVR train and test meta-estimators.
 2. Cross validate: linear regression of the train meta-predictions and then to cut into ordinal classes optimally
 3. linear regression of the train meta-predictions predicting the test meta-predictions and then to cut into ordinal classes optimally.
@@ -18,4 +18,9 @@ The script gives the average standard deviation and a heatmap of the standard-de
 
 ## R programming scripts
 ### ensemble_sample.R
+This script was used in MITx's 15.071x - The Analytics Edge Spring 2015 competition.
+The goal was to predict whether the article is popular or not by analyzing its headline, snippet and abstract.
+This script consists of several steps:
+
 ### modeling_sample.R
+This script is consisted from several homework answers from week 4 of HarvardX - PH525.3x Advances Statistics for the Life Sciences on edx.org.
