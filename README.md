@@ -1,6 +1,6 @@
 # Coding examples
-This github projects consists of samples of both R and python scripting examples. The content of this script
-are written by me unless explictly mentioned overwise.
+This github project consists of samples of both R and python scripting examples. The content of these scripts
+is written by me unless explicitly mentioned otherwise.
 
 ## Python scripts
 ### classifying_ranked_sample.py
