@@ -11,7 +11,20 @@ This script is a second tier solver and it consists of several steps:
 
 1. Read predictions linear regression, random forest, xgboost and SVR train and test meta-estimators.
 2. Stratified K-Fold cross validation: linear regression of the train meta-predictions and then to cut into ordinal classes optimally
-3. linear regression of the train meta-predictions predicting the test meta-predictions and then to cut into ordinal classes optimally.
+3. Linear regression of the train meta-predictions predicting the test meta-predictions and then to cut into ordinal classes optimally.
+4. Write to submission file
+
+### computer_vision_sample.py
+This script was used in the "State Farm Distracted Driver Detection" competition on the 04/2016 on kaggle.com
+The purpose of the competition was to detect distracted drivers between 10 different categories for different driver.
+This script consists of several steps:
+
+1. Read images.
+2. Change images from RGB to gray scale to reduce image parameters and to reduce overfitting between different drivers.
+2. Conduct Monte-Carlo experiment of the training to know what is the mean and standard deviation of the
+3. Plan KFold cross validation scheme by separating between different drivers in order to reduce overfitting.
+4. Train Convolution Neural Network, while in each batch use the training data after minute transformations (resizing, rotating, shearing) to reduce overfitting.
+5. Predict test images from the CNN and write into submission file
 
 ### heatmap_sample.py
 This script is for Monte-Carlo simulations of errors in positioning estimations from multiple Access Points using maximum probability.
