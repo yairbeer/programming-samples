@@ -129,14 +129,14 @@ def cnn_model():
     model.add(Convolution2D(32, nb_conv, nb_conv))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(nb_pool, nb_pool)))
-    model.add(Dropout(0.25))
+    model.add(Dropout(0.5))
 
-    model.add(Convolution2D(64, nb_conv, nb_conv))
+    model.add(Convolution2D(32, nb_conv, nb_conv))
     model.add(Activation('relu'))
-    model.add(Convolution2D(64, nb_conv, nb_conv))
+    model.add(Convolution2D(32, nb_conv, nb_conv))
     model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(nb_pool, nb_pool)))
-    model.add(Dropout(0.25))
+    model.add(Dropout(0.5))
 
     model.add(Flatten())
     model.add(Dense(128))
@@ -156,7 +156,7 @@ def cnn_model():
 Vars
 """
 # Output file name
-submit_name = 'rgb_64x48_man_subsample.csv'
+submit_name = 'rgb_64x48_v2.csv'
 
 # To debug?
 debug = False
@@ -190,15 +190,18 @@ n_ensemble = 1
 percent_drivers = 1.0
 # What percent of the drivers to use in each ensemble
 percent_images = 1.0
-# At what frequency to print prediction results
-man_verbose = 1
+
 
 # input image dimensions
 img_rows, img_cols = img_size_y, img_size_x
 # NN's batch size
-batch_size = 32
+batch_size = 64
+# Number of training batches
+nb_batch = 3000
+# At what frequency of batches to print prediction results
+man_verbose = 100
 # Number of NN epochs
-nb_epoch = 2
+nb_epoch = 100
 # Output classes
 nb_classes = 10
 
@@ -207,8 +210,8 @@ nb_classes = 10
 nb_pool = 2
 # convolution kernel size
 nb_conv = 3
-# learning rate update, index is the epoch round
-lr_updates = {0: 0.003, 2: 0.001}
+# learning rate update, index is the batch round
+lr_updates = {0: 0.003, 1001: 0.001}
 
 """
 Start program
@@ -238,8 +241,6 @@ for i, name_file in enumerate(test_names):
 
 label_encoder = LabelEncoder()
 train_labels = label_encoder.fit_transform(train_labels)
-# print(train_files.shape, test_files.shape)
-# print(np.unique(train_labels))
 
 """
 Image processing
@@ -269,6 +270,7 @@ if n_fold:
         test_results = []
         test_acc = []
         for i_fold in range(n_fold):
+            print('Fold %d' % i_fold)
             # Seed for repeatability
             np.random.seed(1000 * i_fold + 100 * i_mc)
             train_test_driver_index = np.random.choice(range(drivers_index.shape[0]), drivers_index.shape[0],
@@ -338,84 +340,74 @@ if n_fold:
             """
             CV model
             """
-            # Train cnn models
-            train_models = []
+            # Get image preprocessing values
+            cv_predict_test = []
             for i_train in range(n_ensemble):
-                train_models.append(cnn_model())
-
-            # For each epoch
-            for epoch_i in range(nb_epoch):
-                print('Epoch %d' % epoch_i)
-                # Get image preprocessing values
-                X_train_cp = []
-                rot = []
-                rescale = []
-                right_move = []
-                up_move = []
-                shear = []
-                afine_tf = []
-                # For each training set
-                for i_train in range(n_ensemble):
+                print('Ensemble trainer %d' % i_train)
+                # Build model
+                train_models = cnn_model()
+                batch_count = 0
+                for epoch_i in range(nb_epoch):
+                    print('Epoch %d' % epoch_i)
+                    # For each training set copy training set
+                    X_train_cp = np.array(X_train[i_train], copy=True)
                     np.random.seed(epoch_i)
-                    X_train_cp.append(np.array(X_train[i_train], copy=True))
-                    rot.append(np.random.normal(0, rotate_angle, X_train_cp[i_train].shape[0]))
-                    rescale.append(np.random.normal(1, scale_factor, X_train_cp[i_train].shape[0]))
-                    right_move.append(np.random.normal(0, right_factor, X_train_cp[i_train].shape[0]))
-                    up_move.append(np.random.normal(0, up_factor, X_train_cp[i_train].shape[0]))
-                    shear.append(np.random.normal(0, shear_angle, X_train_cp[i_train].shape[0]))
-                    shear[i_train] = np.deg2rad(shear[i_train])
-                # For each training set copy training set
-                for i_train in range(n_ensemble):
-                    # Update learning rate if needed
-                    if epoch_i in lr_updates:
-                        print('lr changed to %f' % lr_updates[epoch_i])
-                        train_models[i_train].optimizer.lr.set_value(lr_updates[epoch_i])
+                    rot = np.random.normal(0, rotate_angle, X_train_cp.shape[0])
+                    rescale = np.random.normal(1, scale_factor, X_train_cp.shape[0])
+                    right_move = np.random.normal(0, right_factor, X_train_cp.shape[0])
+                    up_move = np.random.normal(0, up_factor, X_train_cp.shape[0])
+                    shear = np.random.normal(0, shear_angle, X_train_cp.shape[0])
+                    shear = np.deg2rad(shear)
                     # Preprocess images
-                    for img_i in range(X_train_cp[i_train].shape[0]):
-                        afine_tf = tf.AffineTransform(shear=shear[i_train][img_i])
-                        X_train_cp[i_train][img_i, 0, :, :] = tf.warp(X_train_cp[i_train][img_i, 0, :, :], afine_tf)
-                        X_train_cp[i_train][img_i, 0, :, :] = tf.rotate(X_train_cp[i_train][img_i, 0, :, :],
-                                                                        rot[i_train][img_i])
-                        X_train_cp[i_train][img_i, 0, :, :] = img_rescale(X_train_cp[i_train][img_i, 0, :, :],
-                                                                          rescale[i_train][img_i])
-                        X_train_cp[i_train][img_i, 0, :, :] = img_leftright(X_train_cp[i_train][img_i, 0, :, :],
-                                                                            right_move[i_train][img_i])
-                        X_train_cp[i_train][img_i, 0, :, :] = img_updown(X_train_cp[i_train][img_i, 0, :, :],
-                                                                         up_move[i_train][img_i])
+                    for img_i in range(X_train_cp.shape[0]):
+                        afine_tf = tf.AffineTransform(shear=shear[img_i])
+                        X_train_cp[img_i, 0, :, :] = tf.warp(X_train_cp[img_i, 0, :, :], afine_tf)
+                        X_train_cp[img_i, 0, :, :] = tf.rotate(X_train_cp[img_i, 0, :, :], rot[img_i])
+                        X_train_cp[img_i, 0, :, :] = img_rescale(X_train_cp[img_i, 0, :, :], rescale[img_i])
+                        X_train_cp[img_i, 0, :, :] = img_leftright(X_train_cp[img_i, 0, :, :], right_move[img_i])
+                        X_train_cp[img_i, 0, :, :] = img_updown(X_train_cp[img_i, 0, :, :], up_move[img_i])
                     # Randomize batch order
-                    batch_order = np.random.choice(range(X_train_cp[i_train].shape[0]), X_train_cp[i_train].shape[0],
+                    batch_order = np.random.choice(range(X_train_cp.shape[0]), X_train_cp.shape[0],
                                                    replace=False)
-                    X_train_cp[i_train] = X_train_cp[i_train][batch_order, :, :]
-                    Y_train_cp = Y_train[i_train][batch_order, ]
+                    X_train_cp = X_train_cp[batch_order]
+                    Y_train_cp = Y_train[i_train][batch_order]
                     # Solve epoch
-                    for batch_i in range(0, X_train_cp[i_train].shape[0], batch_size):
-                        if (batch_i + batch_size) < X_train_cp[i_train].shape[0]:
-                            train_models[i_train].train_on_batch(X_train_cp[i_train][batch_i: batch_i + batch_size],
-                                                                 Y_train_cp[batch_i: batch_i + batch_size],
-                                                                 accuracy=True)
+                    for batch_i in range(0, X_train_cp.shape[0], batch_size):
+                        # Update learning rate if needed
+                        if batch_count in lr_updates:
+                            print('lr changed to %f' % lr_updates[batch_count])
+                            train_models.optimizer.lr.set_value(lr_updates[batch_count])
+                        if (batch_i + batch_size) < X_train_cp.shape[0]:
+                            train_models.train_on_batch(X_train_cp[batch_i: batch_i + batch_size],
+                                                        Y_train_cp[batch_i: batch_i + batch_size], accuracy=True)
                         else:
-                            train_models[i_train].train_on_batch(X_train_cp[i_train][batch_i:],
-                                                                 Y_train_cp[batch_i:],
-                                                                 accuracy=True)
-                    score = train_models[i_train].evaluate(X_train[i_train], Y_train[i_train],
-                                                           verbose=0, show_accuracy=True)
-                    if man_verbose:
-                        if not(epoch_i % man_verbose):
-                            print('For batch %d: train score: %.2f, train accuracy: %.3f' % (i_train, score[0],
-                                                                                             score[1]))
-                            score = train_models[i_train].evaluate(X_test, Y_test, verbose=0, show_accuracy=True)
-                            print('For batch %d: test score: %.2f, test accuracy: %.3f' % (i_train, score[0], score[1]))
+                            train_models.train_on_batch(X_train_cp[batch_i:], Y_train_cp[batch_i:], accuracy=True)
+                        batch_count += 1
+                        # Stop training current batch if gotten to nb_batches
+                        if man_verbose:
+                            if not (batch_count % man_verbose):
+                                print('Currently in batch %d' % batch_count)
+                                score = train_models.evaluate(X_train[i_train], Y_train[i_train], verbose=0,
+                                                              show_accuracy=True)
+                                print('For batch %d: train score: %.2f, train accuracy: %.3f' % (i_train, score[0],
+                                                                                                 score[1]))
+                                score = train_models.evaluate(X_test, Y_test, verbose=0, show_accuracy=True)
+                                print('For batch %d: test score: %.2f, test accuracy: %.3f' % (
+                                      i_train, score[0], score[1]))
+                        if batch_count == nb_batch:
+                            break
+                    # Stop training current batch if gotten to nb_batches
+                    if batch_count == nb_batch:
+                        break
+
                 # Fit calculated model to the test data
-                batch_predict_test = []
-                for i_train in range(n_ensemble):
-                    batch_predict_test.append(train_models[i_train].predict_proba(X_test,
-                                                                                  batch_size=batch_size,
-                                                                                  verbose=1))
-                batch_predicted_results = np.zeros(batch_predict_test[0].shape)
-                for mat in batch_predict_test:
-                    batch_predicted_results += mat
-                    batch_predicted_results /= n_ensemble
-                print('The average test score %.3f' % log_loss(train_labels[test_cv_ind], batch_predicted_results))
+                cv_predict_test.append(train_models.predict_proba(X_test, batch_size=batch_size, verbose=1))
+
+            cv_ensemble_predicted_results = np.zeros(cv_predict_test[0].shape)
+            for mat in cv_predict_test:
+                cv_ensemble_predicted_results += mat
+                cv_ensemble_predicted_results /= n_ensemble
+            print('The average test score %.3f' % log_loss(train_labels[test_cv_ind], cv_ensemble_predicted_results))
 
 """
 Solve and submit test
@@ -441,93 +433,90 @@ for i_train in range(n_ensemble):
             train_images[i_train] += list(driver_state_imgs[train_img_index])
     train_images[i_train] = np.array(train_images[i_train])
 
-train_cv_ind = np.zeros((train_files.shape[0], n_ensemble)).astype(bool)
+train_ind = np.zeros((train_files.shape[0], n_ensemble)).astype(bool)
 for i, file_name in enumerate(train_names):
     img_name = file_name.split('/')[-1]
     for i_train in range(n_ensemble):
         if img_name in train_images[i_train]:
-            train_cv_ind[i, i_train] = True
+            train_ind[i, i_train] = True
 
-# Build cnn models
-train_models = []
+# Get the train / test split
+X_train = []
+Y_train = []
 for i_train in range(n_ensemble):
-    train_models.append(cnn_model())
+    X_train.append(train_files_cnn[train_ind[:, i_train]].astype('float32'))
+    Y_train.append(train_labels_dummy[train_ind[:, i_train], :])
 
-# For each epoch
-for epoch_i in range(nb_epoch):
-    print('Epoch %d' % epoch_i)
-    # Get image preprocessing values
-    X_train_cp = []
-    rot = []
-    rescale = []
-    right_move = []
-    up_move = []
-    shear = []
-    afine_tf = []
-    # For each training set
-    for i_train in range(n_ensemble):
+# Get image preprocessing values
+predict_test = []
+for i_train in range(n_ensemble):
+    print('Ensemble trainer %d, with %d images' % (i_train, X_train[i_train].shape[0]))
+    # Build model
+    train_models = cnn_model()
+    batch_count = 0
+    for epoch_i in range(nb_epoch):
+        print('Epoch %d' % epoch_i)
+        # For each training set copy training set
+        X_train_cp = np.array(X_train[i_train], copy=True)
         np.random.seed(epoch_i)
-        X_train_cp.append(np.array(train_files_cnn[train_cv_ind[:, i_train], :, :, :], copy=True))
-        rot.append(np.random.normal(0, rotate_angle, X_train_cp[i_train].shape[0]))
-        rescale.append(np.random.normal(1, scale_factor, X_train_cp[i_train].shape[0]))
-        right_move.append(np.random.normal(0, right_factor, X_train_cp[i_train].shape[0]))
-        up_move.append(np.random.normal(0, up_factor, X_train_cp[i_train].shape[0]))
-        shear.append(np.random.normal(0, shear_angle, X_train_cp[i_train].shape[0]))
-        shear[i_train] = np.deg2rad(shear[i_train])
-    # For each training set copy training set
-    for i_train in range(n_ensemble):
-        # Update learning rate if needed
-        if epoch_i in lr_updates:
-            print('lr changed to %f' % lr_updates[epoch_i])
-            train_models[i_train].optimizer.lr.set_value(lr_updates[epoch_i])
+        rot = np.random.normal(0, rotate_angle, X_train_cp.shape[0])
+        rescale = np.random.normal(1, scale_factor, X_train_cp.shape[0])
+        right_move = np.random.normal(0, right_factor, X_train_cp.shape[0])
+        up_move = np.random.normal(0, up_factor, X_train_cp.shape[0])
+        shear = np.random.normal(0, shear_angle, X_train_cp.shape[0])
+        shear = np.deg2rad(shear)
         # Preprocess images
-        for img_i in range(X_train_cp[i_train].shape[0]):
-            afine_tf = tf.AffineTransform(shear=shear[i_train][img_i])
-            X_train_cp[i_train][img_i, 0, :, :] = tf.warp(X_train_cp[i_train][img_i, 0, :, :], afine_tf)
-            X_train_cp[i_train][img_i, 0, :, :] = tf.rotate(X_train_cp[i_train][img_i, 0, :, :],
-                                                            rot[i_train][img_i])
-            X_train_cp[i_train][img_i, 0, :, :] = img_rescale(X_train_cp[i_train][img_i, 0, :, :],
-                                                              rescale[i_train][img_i])
-            X_train_cp[i_train][img_i, 0, :, :] = img_leftright(X_train_cp[i_train][img_i, 0, :, :],
-                                                                right_move[i_train][img_i])
-            X_train_cp[i_train][img_i, 0, :, :] = img_updown(X_train_cp[i_train][img_i, 0, :, :],
-                                                             up_move[i_train][img_i])
+        for img_i in range(X_train_cp.shape[0]):
+            afine_tf = tf.AffineTransform(shear=shear[img_i])
+            X_train_cp[img_i, 0, :, :] = tf.warp(X_train_cp[img_i, 0, :, :], afine_tf)
+            X_train_cp[img_i, 0, :, :] = tf.rotate(X_train_cp[img_i, 0, :, :], rot[img_i])
+            X_train_cp[img_i, 0, :, :] = img_rescale(X_train_cp[img_i, 0, :, :], rescale[img_i])
+            X_train_cp[img_i, 0, :, :] = img_leftright(X_train_cp[img_i, 0, :, :], right_move[img_i])
+            X_train_cp[img_i, 0, :, :] = img_updown(X_train_cp[img_i, 0, :, :], up_move[img_i])
         # Randomize batch order
-        batch_order = np.random.choice(range(X_train_cp[i_train].shape[0]), X_train_cp[i_train].shape[0],
+        batch_order = np.random.choice(range(X_train_cp.shape[0]), X_train_cp.shape[0],
                                        replace=False)
-        X_train_cp[i_train] = X_train_cp[i_train][batch_order, :, :]
-        Y_train_cp = train_labels_dummy[batch_order, :].copy()
+        X_train_cp = X_train_cp[batch_order]
+        Y_train_cp = Y_train[i_train][batch_order, :]
         # Solve epoch
-        for batch_i in range(0, X_train_cp[i_train].shape[0], batch_size):
-            if (batch_i + batch_size) < X_train_cp[i_train].shape[0]:
-                train_models[i_train].train_on_batch(X_train_cp[i_train][batch_i: batch_i + batch_size],
-                                                     Y_train_cp[batch_i: batch_i + batch_size],
-                                                     accuracy=True)
+        for batch_i in range(0, X_train_cp.shape[0], batch_size):
+            # Update learning rate if needed
+            if batch_count in lr_updates:
+                print('lr changed to %f' % lr_updates[batch_count])
+                train_models.optimizer.lr.set_value(lr_updates[batch_count])
+            if (batch_i + batch_size) < X_train_cp.shape[0]:
+                train_models.train_on_batch(X_train_cp[batch_i: batch_i + batch_size],
+                                            Y_train_cp[batch_i: batch_i + batch_size], accuracy=True)
             else:
-                train_models[i_train].train_on_batch(X_train_cp[i_train][batch_i:],
-                                                     Y_train_cp[batch_i:],
-                                                     accuracy=True)
-        score = train_models[i_train].evaluate(train_files_cnn, train_labels_dummy, verbose=0, show_accuracy=True)
-        if man_verbose:
-            if not (epoch_i % man_verbose):
-                print('For batch %d: train score: %.2f, train accuracy: %.3f' % (i_train, score[0], score[1]))
+                train_models.train_on_batch(X_train_cp[batch_i:], Y_train_cp[batch_i:], accuracy=True)
+            batch_count += 1
+            # Stop training current batch if gotten to nb_batches
+            if man_verbose:
+                if not (batch_count % man_verbose):
+                    print('Currently in batch %d' % batch_count)
+                    score = train_models.evaluate(train_files_cnn, train_labels_dummy, verbose=0,
+                                                  show_accuracy=True)
+                    print('For batch %d: train score: %.2f, train accuracy: %.3f' % (i_train, score[0],
+                                                                                     score[1]))
+            if batch_count == nb_batch:
+                break
+        # Stop training current batch if gotten to nb_batches
+        if batch_count == nb_batch:
+            break
 
-# Fit calculated model to the test data
-batch_predict_test = []
-for i_train in range(n_ensemble):
-    batch_predict_test.append(train_models[i_train].predict_proba(test_files_cnn,
-                                                                  batch_size=batch_size,
-                                                                  verbose=1))
-batch_predicted_results = np.zeros(batch_predict_test[0].shape)
-for mat in batch_predict_test:
-    batch_predicted_results += mat
-    batch_predicted_results /= n_ensemble
+    # Fit calculated model to the test data
+    predict_test.append(train_models.predict_proba(test_files_cnn, batch_size=batch_size, verbose=1))
+
+ensemble_predicted_results = np.zeros(predict_test[0].shape)
+for mat in predict_test:
+    ensemble_predicted_results += mat
+    ensemble_predicted_results /= n_ensemble
 
 sub_file = pd.DataFrame.from_csv('sample_submission.csv')
 
-print(batch_predicted_results)
+print(ensemble_predicted_results)
 
-sub_file.iloc[:, :] = batch_predicted_results
+sub_file.iloc[:, :] = ensemble_predicted_results
 sub_file = sub_file.fillna(0.1)
 
 # Ordering sample index when needed
