@@ -1,4 +1,5 @@
 # Kaggle competitions
+[Kaggle Profile](https://www.kaggle.com/mrbeer "My homepage")
 This short file is summary of my kaggle experience, in which companies I competed and how well did I score.
 I also segmented the competitions to different areas of machine learning.
 
